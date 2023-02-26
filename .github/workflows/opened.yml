@@ -87,20 +87,34 @@ jobs:
           retry_count=0
           max_retries=5
 
-          while true; do
+          while [[ $retry_count -lt $max_retries ]]; do
             response=$(curl -s -o /dev/null -w "%{http_code}" "$app_url")
             if [ "$response" -eq 200 ]; then
               echo "Application is up and running."
-              break
-            elif [ $retry_count -lt $max_retries ]; then
-              echo "Application is not up, response code is $response. Retrying in $retry_interval seconds..."
-              sleep "$retry_interval"
-              retry_count=$((retry_count+1))
+              exit 0
             else
-              echo "Application is not up"
-              exit 1
+              echo "Application is not up, response code is $response. Retrying in $retry_interval seconds..."
+              retry_count=$((retry_count+1))
+              sleep "$retry_interval"
             fi
           done
+          echo "Application is not up"
+          exit 1
+
+          # while true; do
+          #   response=$(curl -s -o /dev/null -w "%{http_code}" "$app_url")
+          #   if [ "$response" -eq 200 ]; then
+          #     echo "Application is up and running."
+          #     break
+          #   elif [ $retry_count -lt $max_retries ]; then
+          #     echo "Application is not up, response code is $response. Retrying in $retry_interval seconds..."
+          #     sleep "$retry_interval"
+          #     retry_count=$((retry_count+1))
+          #   else
+          #     echo "Application is not up"
+          #     exit 1
+          #   fi
+          # done
 
       # - name: Wait for application deployment to come up
       #   uses: nev7n/wait_for_response@v1
@@ -119,15 +133,20 @@ jobs:
     
     - name: Check if HyperTest can start a test run
       run: |
-        while true; do
-            output=./hypertest can-run-test
-            if [[ "$output" == '{ canRunTest: true }' ]]; then
-              echo "HyperTest can run test!"
-              break
+        retry_count=0
+          while [[ $retry_count -lt 5 ]]; do
+            output=$(./hypertest can-run-test)
+            if [[ $output == '{ canRunTest: true }' ]]; then
+              echo "Hypertest can start a new test run"
+              exit 0
+            else
+              echo "Waiting for HyperTest to finish running test. Retrying in 5 seconds..."
+              retry_count=$((retry_count+1))
+              sleep 5
             fi
-            echo "Waiting for HyperTest to finish running test"
-            sleep 5
           done
+          echo "Seems like a test is already running in HyperTest, Wait for it to be completed/terminate it and retrigger this pipeline"
+          exit 1
 
     - name: Start a new test with HyperTest
       run: ./hypertest start-new-test -c http://${{ env.BRANCH_NAME }}-sample-errors.demo-k8s.hypertest.co
