@@ -20,8 +20,8 @@ jobs:
           curl -H "Authorization: token $token" \
                -H "Accept: application/vnd.github.v3+json" \
                -X GET "https://api.github.com/repos/$repo/pulls?state=open&sort=created&direction=asc" \
-               | jq '.[] | select((now - .created_at | fromdateiso8601) > 604800) | .number' \
+               | jq '.[] | select((now - .created_at | fromdateiso8601) > 60) | .number' \
                | xargs -I{} curl -H "Authorization: token $token" \
                                     -H "Accept: application/vnd.github.v3+json" \
-                                    -X PATCH "https://api.github.com/repos/$repo/pulls/{}/" \
+                                    -X POST "https://api.github.com/repos/$repo/pulls/{}/" \
                                     -d '{"state": "closed"}'
