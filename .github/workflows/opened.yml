@@ -1,7 +1,7 @@
 name: Create Application
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, reopened, edited]
     branches:
       - main
 
@@ -139,7 +139,7 @@ jobs:
 
           while [[ $retry_count -lt $max_retries ]]; do
             output=$(./hypertest can-run-test)
-            if [[ $output == '{ canRunTest: true }' ]]; then
+            if echo "$output" | grep -q "{ canRunTest: true }"; then
               echo "Hypertest can start a new test run"
               exit 0
             else
