@@ -1,8 +1,10 @@
-name: Close PR after 7 days
+name: Close PR after 7 days ---
 
 on:
   schedule:
     - cron: '0 0 * * *' # Run every day at midnight
+    
+  workflow_dispatch:
 
 jobs:
   close-pr:
