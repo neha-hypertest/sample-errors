@@ -31,6 +31,15 @@ jobs:
             echo "Branch name contains a forward slash"
             exit 1
           fi
+          
+      - name: Check package.json integrity
+        run: |
+          current_md5=$(md5sum package.json | cut -d ' ' -f1)
+          previous_md5=${{ secrets.package-json-md5sum }}
+          if [ "$current_md5" != "$previous_md5" ]; then
+            echo "Package.json has changed, cancelling workflow..."
+            exit 1
+          fi
 
 
       - name: Code Checkout
