@@ -16,7 +16,7 @@ jobs:
           #sudo apt install jq -y
           
           repo="${{ github.repository }}"
-          curl -H "Authorization: token $token" \
+          curl -H "Authorization: Bearer $token" \
                -H "Accept: application/vnd.github.v3+json" \
                -X GET "https://api.github.com/repos/$repo/pulls" \
                | jq '.[] | select((now - (.created_at | fromdateiso8601)) > 60) | .number' \
