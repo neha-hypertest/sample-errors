@@ -1,22 +1,25 @@
-name: Automatically Close PR after 7 days ---
+name: Close Pull Requests after 7 days
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Run every day at midnight
-    
+    - cron: '0 0 * * *' # Run at midnight every day
+
   workflow_dispatch:
 
 jobs:
-  close-pr:
+  close_pull_requests:
     runs-on: ubuntu-latest
     steps:
+      - name: print env
+        run: printenv
 
-      - name: Close PR after 7 days
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+      - name: Close old pull requests
         run: |
-          #sudo apt install jq -y
-          
-          repo="${{ github.repository }}"
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               -X GET "https://api.github.com/repos/$repo/pulls" \
-               | jq '.[] | select((now - (.created_at | fromdateiso8601)) > 60) | .number'
+          pull_requests=$(curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -H "Accept: application/vnd.github.v3+json" -s "https://api.github.com/repos/${{ github.repository }}/pulls")
+          for pr in $(echo "${pull_requests}" | jq -r '.[] | select((now - (.updated_at | fromdateiso8601)) > 60) | .number'); do
+            echo $pr
+            curl -s -X POST -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/pulls/$pr" -d '{"state": "closed"}'
+          done
