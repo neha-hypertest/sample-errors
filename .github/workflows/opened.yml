@@ -83,7 +83,7 @@ jobs:
       - name: Check if application is up
         run: |
           app_url="http://${{ env.BRANCH_NAME }}-sample-errors.demo-k8s.hypertest.co/app/ping"
-          retry_interval=5
+          retry_interval=10
           retry_count=0
           max_retries=5
 
@@ -134,18 +134,22 @@ jobs:
     - name: Check if HyperTest can start a test run
       run: |
         retry_count=0
-          while [[ $retry_count -lt 5 ]]; do
+        max_retries=5
+        retry_interval=10
+
+          while [[ $retry_count -lt $max_retries ]]; do
             output=$(./hypertest can-run-test)
             if [[ $output == '{ canRunTest: true }' ]]; then
               echo "Hypertest can start a new test run"
               exit 0
             else
-              echo "Waiting for HyperTest to finish running test. Retrying in 5 seconds..."
+              echo $output
+              echo "Waiting for HyperTest to finish running test. Retrying in $retry_interval seconds..."
               retry_count=$((retry_count+1))
               sleep 5
             fi
           done
-          echo "Seems like a test is already running in HyperTest, Wait for it to be completed/terminate it and retrigger this pipeline"
+          echo "Seems like a test is already running in HyperTest, Wait for it to complete/terminate it and retrigger this pipeline"
           exit 1
 
     - name: Start a new test with HyperTest
