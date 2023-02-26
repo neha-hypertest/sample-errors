@@ -31,7 +31,10 @@ jobs:
             echo "Branch name contains a forward slash"
             exit 1
           fi
-          
+
+      - name: Code Checkout
+        uses: actions/checkout@v3
+        
       - name: Check package.json integrity
         run: |
           current_md5=$(md5sum package.json | cut -d ' ' -f1)
@@ -40,10 +43,6 @@ jobs:
             echo "Package.json has changed, cancelling workflow..."
             exit 1
           fi
-
-
-      - name: Code Checkout
-        uses: actions/checkout@v3
 
       # Login to dockerhub
       - name: Login to DockerHub
