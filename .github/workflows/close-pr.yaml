@@ -1,0 +1,28 @@
+name: Close Old Pull Requests
+
+on:
+  schedule:
+    - cron: '30 0 * * *' # Run at midnight every day
+
+  workflow_dispatch:
+
+
+jobs:
+  close_old_pull_requests:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: print env
+        run: printenv
+
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
+  
+
+      - name: Close old pull requests
+        run: |
+          pull_requests=$(curl -s "https://api.github.com/repos/${{ github.repository_owner }}${{ github.repository }}/pulls?state=open")
+          for pr in $(echo "${pull_requests}" | jq -r '.[] | select((now - (.updated_at | fromdateiso8601)) > 86400) | .number'); do
+            curl -s -X PATCH -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/pulls/$pr" -d '{"state": "closed"}'
+          done

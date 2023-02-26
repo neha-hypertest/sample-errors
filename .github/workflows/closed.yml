@@ -1,0 +1,31 @@
+name: Delete Application
+on:
+  pull_request_target:
+    types: 
+      - closed
+    branches:
+      - main
+
+env:
+  BRANCH_NAME: ${{ github.repository_owner }}-${{ github.head_ref }}
+
+jobs:
+  delete-deployment:  
+    runs-on: ubuntu-latest
+    steps:
+      - name: ArgoCD CLI
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.5.5
+          command: version
+          options: --client
+        env:
+         # Only required for first step in job where API is called
+         # All subsequent steps in a job will not re-download the CLI
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       
+
+      - name: ArgoCD login and delete application deployment
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+          argocd app delete sample-errors-${{ env.BRANCH_NAME }} -y 

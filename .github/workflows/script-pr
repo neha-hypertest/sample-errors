@@ -1,0 +1,7 @@
+pull_requests=$(curl -s -H "Authorization: Bearer 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" "https://api.github.com/repos/hypertestco/sample-errors/pulls?state=open")
+
+
+for pr in echo ${pull_requests}
+do
+  jq -r '[created_at]'
+done

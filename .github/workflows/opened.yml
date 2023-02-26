@@ -1,0 +1,133 @@
+name: Create Application
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+    branches:
+      - main
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+env:
+  HT_BASE_URL: 'http://ht-sample-errors.hypertest.demo-k8s.hypertest.co'
+  HT_API_TOKEN: ${{ secrets.HT_API_TOKEN }}
+  HT_COMMIT_HASH: '${{ github.event.pull_request.head.sha }}' ## required because checkout creates a detached commit with a different sha
+  BRANCH_NAME: ${{ github.repository_owner }}-${{ github.head_ref }}
+  IMAGE_NAME: sample-errors
+  IMAGE_TAG: ${{ github.repository_owner }}-${{ github.head_ref }}-${{ github.event.pull_request.head.sha }}
+
+concurrency: 
+  group: ${{ github.repository_owner }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+  
+jobs:
+  build:  
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name
+        run: |
+          if [[ "$GITHUB_HEAD_REF" == */* ]]; then
+            echo "Branch name contains a forward slash"
+            exit 1
+          fi
+
+
+      - name: Code Checkout
+        uses: actions/checkout@v3
+
+      # Login to dockerhub
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          build-args: |
+            PG_HOST_ARG=${{ secrets.PG_HOST }}
+            PG_USER_ARG=${{ secrets.PG_USER }}
+            PG_PASSWORD_ARG=${{ secrets.PG_PASSWORD }}
+            PG_PORT_ARG=${{ secrets.PG_PORT }}
+            PG_DB_ARG=${{ secrets.PG_DB }}
+            JWT_SIGN_KEY_ARG=${{ secrets.JWT_SIGN_KEY }}
+
+            
+  deploy:  
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: ArgoCD CLI
+        uses: clowdhaus/argo-cd-action/@main
+        with:
+          version: 2.5.5
+          command: version
+          options: --client
+        env:
+         # Only required for first step in job where API is called
+         # All subsequent steps in a job will not re-download the CLI
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       
+
+      - name: ArgoCD login and application deployment
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+          argocd app create sample-errors-${{ env.BRANCH_NAME }} --repo https://github.com/hypertestco/sample-errors  --revision argocd-manifest --path sample-errors/ --helm-set image.repository=${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }} --helm-set image.tag=${{ env.IMAGE_TAG }} --helm-set ingress.hosts[0].host=${{ env.BRANCH_NAME }}-sample-errors.demo-k8s.hypertest.co --helm-set ingress.hosts[0].paths[0].path=/ --helm-set ingress.hosts[0].paths[0].pathType=Prefix --project default  --sync-policy automated --sync-option Prune=true --sync-option -CreateNamespace=true --dest-server https://kubernetes.default.svc --dest-namespace sample-errors --upsert
+          sleep 20
+      
+      - name: Check if application is up
+        run: |
+          app_url="http://${{ env.BRANCH_NAME }}-sample-errors.demo-k8s.hypertest.co/app/ping"
+          retry_interval=5
+          retry_count=0
+          max_retries=5
+
+          while true; do
+            response=$(curl -s -o /dev/null -w "%{http_code}" "$app_url")
+            if [ "$response" -eq 200 ]; then
+              echo "Application is up and running."
+              break
+            elif [ $retry_count -lt $max_retries ]; then
+              echo "Application is not up, response code is $response. Retrying in $retry_interval seconds..."
+              sleep "$retry_interval"
+              retry_count=$((retry_count+1))
+            else
+              echo "Application is not up"
+              exit 1
+            fi
+          done
+
+      # - name: Wait for application deployment to come up
+      #   uses: nev7n/wait_for_response@v1
+      #   with:
+      #     url: 'http://${{ env.BRANCH_NAME }}-sample-errors.demo-k8s.hypertest.co/app/ping'
+      #     responseCode: 200
+      #     timeout: 60000
+      #     interval: 5000
+      
+  hypertest-test:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+    - name: Download HyperTest CLI
+      run: wget -O ht-cli.tar.xz https://hypertest-binaries-1.s3.ap-south-1.amazonaws.com/ht-cli/ht-cli-latest.tar.xz -nv && tar xvf ht-cli.tar.xz
+    
+    - name: Check if HyperTest can start a test run
+      run: |
+        while true; do
+            output=./hypertest can-run-test
+            if [[ "$output" == '{ canRunTest: true }' ]]; then
+              echo "HyperTest can run test!"
+              break
+            fi
+            echo "Waiting for HyperTest to finish running test"
+            sleep 5
+          done
+
+    - name: Start a new test with HyperTest
+      run: ./hypertest start-new-test -c http://${{ env.BRANCH_NAME }}-sample-errors.demo-k8s.hypertest.co
