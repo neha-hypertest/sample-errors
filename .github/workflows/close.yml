@@ -1,0 +1,18 @@
+name: Close stale pull requests
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run every day at midnight
+
+jobs:
+  close-stale-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Close stale pull requests
+        uses: peter-evans/close-pull-requests@v1.0.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-days: 1
