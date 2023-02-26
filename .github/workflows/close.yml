@@ -1,4 +1,4 @@
-name: Close PR after 7 days ---
+name: Automatically Close PR after 7 days ---
 
 on:
   schedule:
@@ -10,20 +10,17 @@ jobs:
   close-pr:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
 
       - name: Close PR after 7 days
         run: |
-          sudo apt install jq -y
+          #sudo apt install jq -y
           
-          token="${{ secrets.GITHUB_TOKEN }}"
           repo="${{ github.repository }}"
           curl -H "Authorization: token $token" \
                -H "Accept: application/vnd.github.v3+json" \
-               -X GET "https://api.github.com/repos/$repo/pulls?state=open&sort=created&direction=asc" \
-               | jq '.[] | select((now - .created_at | fromdateiso8601) > 60) | .number' \
-               | xargs -I{} curl -H "Authorization: token $token" \
+               -X GET "https://api.github.com/repos/$repo/pulls" \
+               | jq '.[] | select((now - (.created_at | fromdateiso8601)) > 60) | .number' \
+               | xargs -I{} curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                                     -H "Accept: application/vnd.github.v3+json" \
                                     -X POST "https://api.github.com/repos/$repo/pulls/{}/" \
                                     -d '{"state": "closed"}'
