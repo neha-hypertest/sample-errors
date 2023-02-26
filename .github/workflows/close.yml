@@ -1,20 +1,27 @@
-name: Close stale pull requests actions
+name: Close PR after 7 days
 
 on:
-  workflow_dispatch:
-  
   schedule:
     - cron: '0 0 * * *' # Run every day at midnight
 
 jobs:
-  close-stale-prs:
+  close-pr:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Close stale pull requests
-        uses: peter-evans/close-pull@v2
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          stale-days: 1
+      - name: Close PR after 7 days
+        run: |
+          sudo apt install jq -y
+          
+          token="${{ secrets.GITHUB_TOKEN }}"
+          repo="${{ github.repository }}"
+          curl -H "Authorization: token $token" \
+               -H "Accept: application/vnd.github.v3+json" \
+               -X GET "https://api.github.com/repos/$repo/pulls?state=open&sort=created&direction=asc" \
+               | jq '.[] | select((now - .created_at | fromdateiso8601) > 604800) | .number' \
+               | xargs -I{} curl -H "Authorization: token $token" \
+                                    -H "Accept: application/vnd.github.v3+json" \
+                                    -X PATCH "https://api.github.com/repos/$repo/pulls/{}/" \
+                                    -d '{"state": "closed"}'
