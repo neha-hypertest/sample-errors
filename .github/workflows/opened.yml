@@ -1,6 +1,6 @@
 name: Create Application
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, edited]
     branches:
       - main
