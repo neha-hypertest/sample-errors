@@ -5,7 +5,7 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 router.get('/performance/standard', async (req, res) => {
   // Do not change standard route code block.
-  await sleep(400);
+  await sleep(500);
   return res.status(200).json({
     success: true,
     msg: 'Standard route response.',
