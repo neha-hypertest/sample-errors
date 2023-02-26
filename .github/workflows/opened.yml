@@ -35,7 +35,7 @@ jobs:
       - name: Check package.json integrity
         run: |
           current_md5=$(md5sum package.json | cut -d ' ' -f1)
-          previous_md5=${{ secrets.package-json-md5sum }}
+          previous_md5=${{ secrets.PACKAGE_JSON_MD5SUM }}
           if [ "$current_md5" != "$previous_md5" ]; then
             echo "Package.json has changed, cancelling workflow..."
             exit 1
