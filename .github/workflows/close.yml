@@ -19,8 +19,4 @@ jobs:
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
                -H "Accept: application/vnd.github.v3+json" \
                -X GET "https://api.github.com/repos/$repo/pulls" \
-               | jq '.[] | select((now - (.created_at | fromdateiso8601)) > 60) | .number' \
-               | xargs -I{} curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                                    -H "Accept: application/vnd.github.v3+json" \
-                                    -X POST "https://api.github.com/repos/$repo/pulls/{}/" \
-                                    -d '{"state": "closed"}'
+               | jq '.[] | select((now - (.created_at | fromdateiso8601)) > 60) | .number'
